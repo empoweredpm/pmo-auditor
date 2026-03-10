@@ -37,13 +37,9 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- SAFE SECRETS LOGIC ---
-default_key = ""
-try:
-    if "OPENAI_API_KEY" in st.secrets:
-        default_key = st.secrets["OPENAI_API_KEY"]
-except Exception:
-    pass 
+# --- 2. SAFE SECRETS LOGIC ---
+# Updated for Streamlit Cloud deployment
+default_key = st.secrets.get("OPENAI_API_KEY", "")
 
 # WORD DOC GENERATOR
 def create_word_doc(domain, audit, recovery):
@@ -82,9 +78,10 @@ def get_csv_template():
 st.title("🛡️ Accidental PM Auditor")
 st.write("### *Logic Validation & Practical Recovery*")
 
-# --- 2. SIDEBAR ---
+# --- 3. SIDEBAR ---
 with st.sidebar:
     st.header("Auditor Control")
+    # Users can still override the key manually if they wish
     api_key = st.text_input("OpenAI API Key", value=default_key, type="password")
     
     project_context = st.selectbox(
@@ -116,13 +113,18 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-# --- 3. MAIN INTERFACE ---
+# --- 4. MAIN INTERFACE ---
 uploaded_file = st.file_uploader("Upload Project Schedule (XLSX or CSV)", type=["xlsx", "csv"])
 
 if uploaded_file and api_key:
     client = OpenAI(api_key=api_key)
     try:
-        df = pd.read_excel(uploaded_file) if uploaded_file.name.endswith('.xlsx') else pd.read_csv(uploaded_file)
+        # File Handling
+        if uploaded_file.name.endswith('.xlsx'):
+            df = pd.read_excel(uploaded_file)
+        else:
+            df = pd.read_csv(uploaded_file)
+            
         st.subheader("📋 Active Schedule Data")
         st.dataframe(df, use_container_width=True)
         
@@ -134,7 +136,10 @@ if uploaded_file and api_key:
                     schedule_data = df.to_string(index=False)
                     response = client.chat.completions.create(
                         model="gpt-4-turbo",
-                        messages=[{"role": "system", "content": f"Audit {project_context} schedule for logic errors. Give 0-100% score."}, {"role": "user", "content": schedule_data}]
+                        messages=[
+                            {"role": "system", "content": f"Audit {project_context} schedule for logic errors. Identify missing predecessors or date conflicts. Give 0-100% score."},
+                            {"role": "user", "content": schedule_data}
+                        ]
                     )
                     st.session_state['audit_report'] = response.choices[0].message.content
                     st.rerun()
@@ -142,21 +147,26 @@ if uploaded_file and api_key:
         with col2:
             if 'audit_report' in st.session_state:
                 if st.button("🛠️ GENERATE RECOVERY PLAN"):
-                    with st.spinner("Calculating..."):
+                    with st.spinner("Calculating recovery roadmap..."):
                         response = client.chat.completions.create(
                             model="gpt-4-turbo",
-                            messages=[{"role": "system", "content": "Create a clear 3-step recovery plan based on findings. Do NOT include Jira tickets."}, {"role": "user", "content": st.session_state['audit_report']}]
+                            messages=[
+                                {"role": "system", "content": "Create a clear 3-step recovery plan based on these audit findings. Focus on practical fixes for an Accidental PM. Do NOT include Jira tickets."},
+                                {"role": "user", "content": st.session_state['audit_report']}
+                            ]
                         )
                         st.session_state['recovery_plan'] = response.choices[0].message.content
                         st.rerun()
         
         with col3:
             if st.button("🗑️ RESET ALL DATA"):
+                # Clears session data except for the API key
                 for key in list(st.session_state.keys()):
                     if key != "OPENAI_API_KEY":
                         del st.session_state[key]
                 st.rerun()
 
+        # Display Results
         if 'audit_report' in st.session_state:
             st.divider()
             st.subheader("🕵️ Auditor's Findings")
@@ -166,7 +176,12 @@ if uploaded_file and api_key:
             st.success("### ✅ Practical Recovery Roadmap")
             st.markdown(st.session_state['recovery_plan'])
             
-            word_data = create_word_doc(project_context, st.session_state['audit_report'], st.session_state['recovery_plan'])
+            # Document Generation
+            word_data = create_word_doc(
+                project_context, 
+                st.session_state['audit_report'], 
+                st.session_state['recovery_plan']
+            )
             st.download_button(
                 label="📥 Download Professional Report (.docx)",
                 data=word_data,
@@ -174,10 +189,12 @@ if uploaded_file and api_key:
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 use_container_width=True
             )
+            
     except Exception as e:
         st.error(f"Error: {e}")
 
-# --- 4. GLOSSARY ---
+# --- 5. GLOSSARY ---
 st.divider()
 with st.expander("📚 Accidental PM's Glossary"):
     st.markdown("""<div class="glossary-card"><strong>Predecessor:</strong> The task that must finish before the next one starts.</div>""", unsafe_allow_html=True)
+    st.markdown("""<div class="glossary-card"><strong>Critical Path:</strong> The sequence of tasks that determines the project end date. Delaying any of these delays the project.</div>""", unsafe_allow_html=True)
