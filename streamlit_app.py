@@ -37,8 +37,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- SAFE SECRETS LOGIC ---
-# Using the background secret key so it never shows in the UI
+# --- 2. SECRETS & LOGIC ---
 api_key = st.secrets.get("OPENAI_API_KEY", "")
 
 # WORD DOC GENERATOR
@@ -63,11 +62,10 @@ def create_word_doc(domain, audit, recovery):
     doc.save(bio)
     return bio.getvalue()
 
-# --- MAIN INTERFACE HEADER ---
+# --- 3. MAIN INTERFACE HEADER ---
 col_logo, col_title = st.columns([1, 4])
 
 with col_logo:
-    # UPDATED: Now looks for the .png version
     if os.path.exists("empPMlogo.png"):
         st.image("empPMlogo.png", width=150)
 
@@ -77,12 +75,12 @@ with col_title:
 
 st.markdown("""
 <div class="hero-section">
-    <strong>The Logic Linter for Leaders.</strong> Upload your project schedule below. 
-    Our AI identifies logic bugs and dependency gaps so you can lead with absolute authority.
+    <strong>Logic Validation & Practical Recovery.</strong> Upload your project schedule to identify logic errors, 
+    date overlaps, and resource risks before they hit your critical path.
 </div>
 """, unsafe_allow_html=True)
 
-# --- 2. SIDEBAR ---
+# --- 4. SIDEBAR ---
 with st.sidebar:
     st.header("Auditor Control")
     
@@ -111,13 +109,13 @@ with st.sidebar:
     st.markdown("""
     <div class="sidebar-guide">
     1. <b>Upload:</b> Plan in XLSX or CSV format.<br>
-    2. <b>Audit:</b> Click Red to find logic errors.<br>
-    3. <b>Recover:</b> Click Green for the roadmap.<br>
+    2. <b>Audit (Red):</b> Execute full logic critique.<br>
+    3. <b>Recover (Green):</b> Generate the roadmap.<br>
     4. <b>Export:</b> Download the branded Word report.
     </div>
     """, unsafe_allow_html=True)
 
-# --- 3. MAIN INTERFACE ---
+# --- 5. MAIN INTERFACE LOGIC ---
 if not api_key:
     st.error("🚨 API Key missing from Secrets. Please add OPENAI_API_KEY to Streamlit Cloud.")
     st.stop()
@@ -127,6 +125,7 @@ uploaded_file = st.file_uploader("Upload Project Schedule (XLSX or CSV)", type=[
 if uploaded_file:
     client = OpenAI(api_key=api_key)
     try:
+        # File Handling
         df = pd.read_excel(uploaded_file) if uploaded_file.name.endswith('.xlsx') else pd.read_csv(uploaded_file)
         st.subheader("📋 Active Schedule Data")
         st.dataframe(df, use_container_width=True)
@@ -135,11 +134,14 @@ if uploaded_file:
         
         with col1:
             if st.button("🚀 EXECUTE LOGIC AUDIT"):
-                with st.spinner("Analyzing schedule logic..."):
+                with st.spinner(f"Auditing {project_context} schedule for logic errors..."):
                     schedule_data = df.to_string(index=False)
                     response = client.chat.completions.create(
                         model="gpt-4-turbo",
-                        messages=[{"role": "system", "content": "You are The Empowered PM Mentor. Audit this schedule for logic errors and date conflicts. Be authoritative and supportive."}, {"role": "user", "content": schedule_data}]
+                        messages=[
+                            {"role": "system", "content": f"You are a Senior PMO Auditor for {project_context}. Audit this schedule for logic errors, broken dependencies, and date conflicts. Assign a health score (0-100%) and provide clear findings."},
+                            {"role": "user", "content": schedule_data}
+                        ]
                     )
                     st.session_state['audit_report'] = response.choices[0].message.content
                     st.rerun()
@@ -147,23 +149,30 @@ if uploaded_file:
         with col2:
             if 'audit_report' in st.session_state:
                 if st.button("🛠️ GENERATE RECOVERY PLAN"):
-                    with st.spinner("Building roadmap..."):
+                    with st.spinner("Calculating roadmap..."):
                         response = client.chat.completions.create(
                             model="gpt-4-turbo",
-                            messages=[{"role": "system", "content": "Provide a 3-step recovery plan based on the audit. Focus on clear, high-impact fixes for a project leader."}, {"role": "user", "content": st.session_state['audit_report']}]
+                            messages=[
+                                {"role": "system", "content": "Create a clear 3-step recovery roadmap based on the audit findings. Focus on practical fixes for an Empowered PM. Do NOT include Jira tickets."},
+                                {"role": "user", "content": st.session_state['audit_report']}
+                            ]
                         )
                         st.session_state['recovery_plan'] = response.choices[0].message.content
                         st.rerun()
         
         with col3:
+            # FIXED RESET BUTTON: Clears specific session keys and reloads
             if st.button("🗑️ RESET ALL DATA"):
-                for key in list(st.session_state.keys()):
-                    del st.session_state[key]
+                keys_to_reset = ['audit_report', 'recovery_plan']
+                for key in keys_to_reset:
+                    if key in st.session_state:
+                        del st.session_state[key]
                 st.rerun()
 
+        # Display Findings
         if 'audit_report' in st.session_state:
             st.divider()
-            st.subheader("🕵️ Audit Findings")
+            st.subheader("🕵️ Auditor's Findings")
             st.markdown(st.session_state['audit_report'])
             
         if 'recovery_plan' in st.session_state:
@@ -181,7 +190,8 @@ if uploaded_file:
     except Exception as e:
         st.error(f"Error: {e}")
 
-# --- 4. GLOSSARY ---
+# --- 6. GLOSSARY ---
 st.divider()
 with st.expander("📚 The Empowered PM's Glossary"):
     st.markdown("""<div class="glossary-card"><strong>Logic Linter:</strong> A tool that scans your project plan for 'logic bugs' like missing links or impossible dates.</div>""", unsafe_allow_html=True)
+    st.markdown("""<div class="glossary-card"><strong>Predecessor:</strong> The task that must finish before the next one starts.</div>""", unsafe_allow_html=True)
