@@ -28,34 +28,31 @@ st.markdown("""
 # --- 2. SECRETS & LOGIC ---
 api_key = st.secrets.get("OPENAI_API_KEY", "")
 
+# Initialize File Uploader Key if not present
+if 'uploader_key' not in st.session_state:
+    st.session_state['uploader_key'] = 0
+
 def format_clean_text(doc, text):
     """Helper to remove asterisks and create real Word bullet points/spacing."""
     lines = text.split('\n')
     for line in lines:
         clean_line = line.replace('*', '').strip()
         if not clean_line:
-            doc.add_paragraph() # Spacing
+            doc.add_paragraph()
             continue
         
-        # Check if the line was originally a bullet point
         if line.strip().startswith('*') or line.strip().startswith('-'):
             p = doc.add_paragraph(clean_line, style='List Bullet')
         else:
             p = doc.add_paragraph(clean_line)
-        
-        # Add spacing after paragraph
         p.paragraph_format.space_after = Pt(6)
 
-# WORD DOC GENERATOR (Version 2.0: Clean Formatting & Watermark)
 def create_word_doc(domain, audit, recovery):
     doc = Document()
-    
-    # 1. Header Logo
     if os.path.exists("empPMlogo.png"):
         doc.add_picture("empPMlogo.png", width=Inches(1.2))
         doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-    # 2. Branded Title
     title = doc.add_heading('The Empowered PM: Audit & Recovery Report', 0)
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
     
@@ -69,14 +66,14 @@ def create_word_doc(domain, audit, recovery):
     doc.add_heading('🛠️ Recovery Roadmap', level=1)
     format_clean_text(doc, recovery)
     
-    # 3. Footer Watermark
+    # Watermark Footer
     section = doc.sections[0]
     footer = section.footer
     f_p = footer.paragraphs[0]
     f_p.text = "Prepared by The Empowered PM Consulting, copyright 2026."
     f_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     f_p.style.font.size = Pt(9)
-    f_p.style.font.color.rgb = (128, 128, 128) # Grey watermark
+    f_p.style.font.color.rgb = (128, 128, 128)
     
     bio = BytesIO()
     doc.save(bio)
@@ -93,8 +90,8 @@ with col_title:
 
 st.markdown("""
 <div class="hero-section">
-    <strong>The Logic Linter.</strong> Identify schedule errors and dependency gaps before they hit your critical path. 
-    Focus on logic and clarity within your existing MS Office workflows.
+    <strong>The Logic Linter.</strong> Clear your project data at any time using the Reset button. 
+    Audit schedule errors and dependency gaps within your existing MS Office workflows.
 </div>
 """, unsafe_allow_html=True)
 
@@ -107,10 +104,11 @@ with st.sidebar:
     st.markdown("**📖 Quick Start Guide**")
     st.markdown("""
     <div class="sidebar-guide">
-    1. <b>Upload:</b> Plan in XLSX or CSV format.<br>
+    1. <b>Upload:</b> Schedule in XLSX or CSV.<br>
     2. <b>Audit (Red):</b> Execute logic critique.<br>
     3. <b>Recover (Green):</b> Generate fixes.<br>
-    4. <b>Export:</b> Download the clean Word report.
+    4. <b>Export:</b> Download clean report.<br>
+    5. <b>Reset:</b> Wipe all data for next project.
     </div>
     """, unsafe_allow_html=True)
 
@@ -119,7 +117,12 @@ if not api_key:
     st.error("🚨 API Key missing from Secrets.")
     st.stop()
 
-uploaded_file = st.file_uploader("Upload Project Schedule (XLSX or CSV)", type=["xlsx", "csv"])
+# File Uploader with Dynamic Key for Reset functionality
+uploaded_file = st.file_uploader(
+    "Upload Project Schedule (XLSX or CSV)", 
+    type=["xlsx", "csv"], 
+    key=f"uploader_{st.session_state['uploader_key']}"
+)
 
 if uploaded_file:
     client = OpenAI(api_key=api_key)
@@ -137,7 +140,7 @@ if uploaded_file:
                     response = client.chat.completions.create(
                         model="gpt-4-turbo",
                         messages=[
-                            {"role": "system", "content": f"You are a Senior PMO Auditor for {project_context}. Audit this schedule for logic errors. IMPORTANT: Do NOT recommend new PM tools (Jira, Asana, etc.). Assume they use Excel/MS Project. Provide a health score (0-100%) and plain text math only (no LaTeX)."},
+                            {"role": "system", "content": f"You are a Senior PMO Auditor for {project_context}. Audit this schedule for logic errors. Do NOT recommend new PM tools. Assume MS Office use. Use plain text math only."},
                             {"role": "user", "content": schedule_data}
                         ]
                     )
@@ -151,7 +154,7 @@ if uploaded_file:
                         response = client.chat.completions.create(
                             model="gpt-4-turbo",
                             messages=[
-                                {"role": "system", "content": "Create a 3-step recovery roadmap based on findings. Focus on fixing dates and logic in MS Office applications. DO NOT suggest software migrations. Use clean text without markdown asterisks."},
+                                {"role": "system", "content": "Create a 3-step recovery roadmap. Focus on MS Office fixes. No software migrations. No asterisks."},
                                 {"role": "user", "content": st.session_state['audit_report']}
                             ]
                         )
@@ -160,8 +163,14 @@ if uploaded_file:
         
         with col3:
             if st.button("🗑️ RESET ALL DATA"):
-                for key in ['audit_report', 'recovery_plan']:
-                    if key in st.session_state: del st.session_state[key]
+                # 1. Clear text reports
+                if 'audit_report' in st.session_state: del st.session_state['audit_report']
+                if 'recovery_plan' in st.session_state: del st.session_state['recovery_plan']
+                
+                # 2. Increment uploader key to force clear the file widget
+                st.session_state['uploader_key'] += 1
+                
+                # 3. Refresh the page
                 st.rerun()
 
         if 'audit_report' in st.session_state:
@@ -177,3 +186,8 @@ if uploaded_file:
             st.download_button(label="📥 Download Report", data=word_data, file_name="Empowered_PM_Report.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
     except Exception as e:
         st.error(f"Error: {e}")
+
+# --- 6. GLOSSARY ---
+st.divider()
+with st.expander("📚 The Empowered PM's Glossary"):
+    st.markdown("""<div class="glossary-card"><strong>Logic Linter:</strong> A tool that scans your project plan for 'logic bugs' like missing links or impossible dates.</div>""", unsafe_allow_html=True)
