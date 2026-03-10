@@ -37,9 +37,10 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. SAFE SECRETS LOGIC ---
-# Updated for Streamlit Cloud deployment
-default_key = st.secrets.get("OPENAI_API_KEY", "")
+# --- 2. BACKGROUND API LOGIC ---
+# This pulls the key from your Streamlit Secrets vault silently.
+# The user will never see this key in the sidebar.
+api_key = st.secrets.get("OPENAI_API_KEY", "")
 
 # WORD DOC GENERATOR
 def create_word_doc(domain, audit, recovery):
@@ -78,11 +79,12 @@ def get_csv_template():
 st.title("🛡️ Accidental PM Auditor")
 st.write("### *Logic Validation & Practical Recovery*")
 
-# --- 3. SIDEBAR ---
+# --- 3. SIDEBAR (Clean & Secure) ---
 with st.sidebar:
     st.header("Auditor Control")
-    # Users can still override the key manually if they wish
-    api_key = st.text_input("OpenAI API Key", value=default_key, type="password")
+    
+    # The API Key input is removed from here for security.
+    # It now runs automatically in the background.
     
     project_context = st.selectbox(
         "Project Domain", 
@@ -114,12 +116,15 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
 # --- 4. MAIN INTERFACE ---
+if not api_key:
+    st.error("🚨 **Security Alert:** API Key missing from Cloud Secrets. Please add it to your Streamlit dashboard.")
+    st.stop()
+
 uploaded_file = st.file_uploader("Upload Project Schedule (XLSX or CSV)", type=["xlsx", "csv"])
 
-if uploaded_file and api_key:
+if uploaded_file:
     client = OpenAI(api_key=api_key)
     try:
-        # File Handling
         if uploaded_file.name.endswith('.xlsx'):
             df = pd.read_excel(uploaded_file)
         else:
@@ -160,13 +165,10 @@ if uploaded_file and api_key:
         
         with col3:
             if st.button("🗑️ RESET ALL DATA"):
-                # Clears session data except for the API key
                 for key in list(st.session_state.keys()):
-                    if key != "OPENAI_API_KEY":
-                        del st.session_state[key]
+                    del st.session_state[key]
                 st.rerun()
 
-        # Display Results
         if 'audit_report' in st.session_state:
             st.divider()
             st.subheader("🕵️ Auditor's Findings")
@@ -176,7 +178,6 @@ if uploaded_file and api_key:
             st.success("### ✅ Practical Recovery Roadmap")
             st.markdown(st.session_state['recovery_plan'])
             
-            # Document Generation
             word_data = create_word_doc(
                 project_context, 
                 st.session_state['audit_report'], 
