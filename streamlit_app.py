@@ -13,39 +13,55 @@ with st.sidebar:
     1. **Export** your project plan to CSV or Excel.
     2. **Upload** the file using the box on the right.
     3. **Review** the AI-generated Risk Report.
-    
-    *Target Audience: Accidental Project Managers*
     """)
     st.divider()
-    st.info("Version 1.0 - Production Ready")
+    st.info("Target Audience: Accidental Project Managers")
 
 # 3. Main Interface
 st.title("🛡️ Accidental PM Auditor")
-st.subheader("Turn your 'Accidental' project plan into a professional roadmap.")
+st.subheader("Automated Risk Analysis for Non-Certified Project Leaders")
 
 # 4. API & Security Check
-# This looks for the key you saved in the 'Advanced Settings' Secrets box
 api_key = st.secrets.get("OPENAI_API_KEY", "")
 
 if not api_key:
-    st.error("🚨 **System Offline:** API Key not found in Streamlit Secrets.")
-    st.stop() # Stops the app here so no code leaks
+    st.error("🚨 **System Offline:** Please add your OPENAI_API_KEY to the Streamlit Secrets vault.")
+    st.stop()
 else:
-    # 5. File Uploader (Now accepts Excel and CSV)
-    uploaded_file = st.file_uploader("Upload Project Schedule", type=['csv', 'xlsx', 'xls'])
+    client = OpenAI(api_key=api_key)
+    
+    # 5. File Uploader
+    uploaded_file = st.file_uploader("Upload Project Schedule (Excel or CSV)", type=['csv', 'xlsx', 'xls'])
 
     if uploaded_file:
         try:
-            # Handle both Excel and CSV
             if uploaded_file.name.endswith('.csv'):
                 df = pd.read_csv(uploaded_file)
             else:
                 df = pd.read_excel(uploaded_file)
             
             st.success(f"✅ Loaded: {uploaded_file.name}")
-            st.dataframe(df.head()) # Shows the first few rows of the plan
             
-            st.button("🔍 Run Health Audit")
+            # 6. The "Original" Audit Logic
+            if st.button("🔍 Run Full Health Audit"):
+                with st.spinner("Analyzing project logic and risks..."):
+                    # Convert the project plan to text for the AI
+                    project_summary = df.to_string()
+                    
+                    response = client.chat.completions.create(
+                        model="gpt-4",
+                        messages=[
+                            {"role": "system", "content": "You are a Senior PMO Auditor. Analyze this project plan for an 'Accidental PM'. Identify missing dependencies, unrealistic durations, and resource gaps."},
+                            {"role": "user", "content": f"Review this project data: {project_summary}"}
+                        ]
+                    )
+                    
+                    st.markdown("### 📋 PMO Audit Report")
+                    st.write(response.choices[0].message.content)
+            
+            st.divider()
+            st.markdown("### Preview of Uploaded Plan")
+            st.dataframe(df)
             
         except Exception as e:
-            st.error(f"Error reading file: {e}")
+            st.error(f"Error processing file: {e}")
