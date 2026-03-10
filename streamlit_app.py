@@ -3,7 +3,7 @@ import pandas as pd
 from openai import OpenAI
 import re
 from docx import Document
-from docx.shared import Pt, Inches
+from docx.shared import Pt, Inches, RGBColor # Added RGBColor here
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from io import BytesIO
 import os
@@ -28,7 +28,6 @@ st.markdown("""
 # --- 2. SECRETS & LOGIC ---
 api_key = st.secrets.get("OPENAI_API_KEY", "")
 
-# Initialize File Uploader Key if not present
 if 'uploader_key' not in st.session_state:
     st.session_state['uploader_key'] = 0
 
@@ -60,20 +59,23 @@ def create_word_doc(domain, audit, recovery):
     tagline.alignment = WD_ALIGN_PARAGRAPH.CENTER
     tagline.runs[0].italic = True
     
-    doc.add_heading('🕵️ Logic Audit Findings', level=1)
+    doc.add_heading('🕵️ Audit Findings', level=1)
     format_clean_text(doc, audit)
     
     doc.add_heading('🛠️ Recovery Roadmap', level=1)
     format_clean_text(doc, recovery)
     
-    # Watermark Footer
+    # Watermark Footer - FIXED with RGBColor object
     section = doc.sections[0]
     footer = section.footer
     f_p = footer.paragraphs[0]
     f_p.text = "Prepared by The Empowered PM Consulting, copyright 2026."
     f_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    f_p.style.font.size = Pt(9)
-    f_p.style.font.color.rgb = (128, 128, 128)
+    
+    # Apply styling using RGBColor object
+    run = f_p.runs[0] if f_p.runs else f_p.add_run()
+    run.font.size = Pt(9)
+    run.font.color.rgb = RGBColor(128, 128, 128) # Fix: Uses RGBColor object
     
     bio = BytesIO()
     doc.save(bio)
@@ -90,8 +92,8 @@ with col_title:
 
 st.markdown("""
 <div class="hero-section">
-    <strong>The Logic Linter.</strong> Clear your project data at any time using the Reset button. 
-    Audit schedule errors and dependency gaps within your existing MS Office workflows.
+    <strong>Validation & Practical Recovery.</strong> Identify schedule errors and dependency gaps 
+    before they hit your critical path. Lead your project with absolute clarity and authority.
 </div>
 """, unsafe_allow_html=True)
 
@@ -107,8 +109,8 @@ with st.sidebar:
     1. <b>Upload:</b> Schedule in XLSX or CSV.<br>
     2. <b>Audit (Red):</b> Execute logic critique.<br>
     3. <b>Recover (Green):</b> Generate fixes.<br>
-    4. <b>Export:</b> Download clean report.<br>
-    5. <b>Reset:</b> Wipe all data for next project.
+    4. <b>Export:</b> Download report.<br>
+    5. <b>Reset:</b> Clear data for next user.
     </div>
     """, unsafe_allow_html=True)
 
@@ -117,7 +119,6 @@ if not api_key:
     st.error("🚨 API Key missing from Secrets.")
     st.stop()
 
-# File Uploader with Dynamic Key for Reset functionality
 uploaded_file = st.file_uploader(
     "Upload Project Schedule (XLSX or CSV)", 
     type=["xlsx", "csv"], 
@@ -140,7 +141,7 @@ if uploaded_file:
                     response = client.chat.completions.create(
                         model="gpt-4-turbo",
                         messages=[
-                            {"role": "system", "content": f"You are a Senior PMO Auditor for {project_context}. Audit this schedule for logic errors. Do NOT recommend new PM tools. Assume MS Office use. Use plain text math only."},
+                            {"role": "system", "content": f"You are a Senior PMO Auditor for {project_context}. Audit this schedule for logic errors. Do NOT recommend new PM tools. Provide a health score (0-100%) and plain text math only."},
                             {"role": "user", "content": schedule_data}
                         ]
                     )
@@ -154,7 +155,7 @@ if uploaded_file:
                         response = client.chat.completions.create(
                             model="gpt-4-turbo",
                             messages=[
-                                {"role": "system", "content": "Create a 3-step recovery roadmap. Focus on MS Office fixes. No software migrations. No asterisks."},
+                                {"role": "system", "content": "Create a 3-step recovery roadmap based on findings. No software migrations. No asterisks."},
                                 {"role": "user", "content": st.session_state['audit_report']}
                             ]
                         )
@@ -163,14 +164,9 @@ if uploaded_file:
         
         with col3:
             if st.button("🗑️ RESET ALL DATA"):
-                # 1. Clear text reports
                 if 'audit_report' in st.session_state: del st.session_state['audit_report']
                 if 'recovery_plan' in st.session_state: del st.session_state['recovery_plan']
-                
-                # 2. Increment uploader key to force clear the file widget
                 st.session_state['uploader_key'] += 1
-                
-                # 3. Refresh the page
                 st.rerun()
 
         if 'audit_report' in st.session_state:
@@ -182,12 +178,21 @@ if uploaded_file:
             st.success("### ✅ Practical Recovery Roadmap")
             st.markdown(st.session_state['recovery_plan'])
             
+            # This generates the doc bytes
             word_data = create_word_doc(project_context, st.session_state['audit_report'], st.session_state['recovery_plan'])
-            st.download_button(label="📥 Download Report", data=word_data, file_name="Empowered_PM_Report.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
+            
+            # This button will now show up because the create_word_doc error is fixed
+            st.download_button(
+                label="📥 Download Report", 
+                data=word_data, 
+                file_name="Empowered_PM_Report.docx", 
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", 
+                use_container_width=True
+            )
     except Exception as e:
         st.error(f"Error: {e}")
 
 # --- 6. GLOSSARY ---
 st.divider()
 with st.expander("📚 The Empowered PM's Glossary"):
-    st.markdown("""<div class="glossary-card"><strong>Logic Linter:</strong> A tool that scans your project plan for 'logic bugs' like missing links or impossible dates.</div>""", unsafe_allow_html=True)
+    st.markdown("""<div class="glossary-card"><strong>Logic Validation:</strong> The process of ensuring your project plan follows standard scheduling principles so it remains predictable and manageable.</div>""", unsafe_allow_html=True)
