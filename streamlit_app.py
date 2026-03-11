@@ -11,24 +11,23 @@ import os
 # --- 1. PAGE SETUP ---
 st.set_page_config(page_title="The Empowered PM Auditor", layout="wide", page_icon="🛡️")
 
-# CSS: Branding and CTA Styling
+# CSS: Styling for Action Buttons, Branding, and Sidebar
 st.markdown("""
     <style>
     .stButton > button { width: 100%; border-radius: 8px; height: 3.5em; font-weight: bold; color: white !important; }
+    
+    /* Action Row Colors */
     [data-testid="stHorizontalBlock"] div:nth-child(1) button { background-color: #d32f2f !important; border: none; }
     [data-testid="stHorizontalBlock"] div:nth-child(2) button { background-color: #2e7d32 !important; border: none; }
     [data-testid="stHorizontalBlock"] div:nth-child(3) button { 
         background-color: #bdc3c7 !important; color: #000000 !important; border: 2px solid #2c3e50 !important;
     }
+
     .hero-section { background-color: #f0f4f8; padding: 25px; border-radius: 15px; border-left: 10px solid #0052cc; margin-bottom: 20px; }
-    .cta-box { 
-        background-color: #fff3cd; padding: 20px; border-radius: 10px; 
-        border: 2px solid #ffeeba; margin-top: 25px; text-align: center;
-    }
-    .sidebar-cta {
-        background-color: #e7f3ff; padding: 15px; border-radius: 8px; 
-        border: 1px solid #b3d7ff; margin-top: 20px; font-size: 0.9rem;
-    }
+    .cta-box { background-color: #fff3cd; padding: 20px; border-radius: 10px; border: 2px solid #ffeeba; margin-top: 25px; text-align: center; }
+    .sidebar-guide { font-size: 0.85rem; color: #333; background-color: #f0f2f6; padding: 12px; border-radius: 8px; border: 1px solid #d1d5db; }
+    .sample-table { font-size: 0.75rem; width: 100%; border-collapse: collapse; margin-top: 10px; background-color: white; }
+    .sample-table th, .sample-table td { border: 1px solid #ccc; padding: 4px; text-align: left; color: black; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -69,11 +68,8 @@ def create_word_doc(domain, audit, recovery):
     doc.add_heading('🛠️ Recovery Roadmap', level=1)
     format_clean_text(doc, recovery)
     
-    # CTA inside the Document
-    doc.add_heading('Next Steps: Join the PM Survival Intensive', level=2)
-    doc.add_paragraph("Don't let logic bugs derail your leadership. Join our 4-week intensive coaching program to master project authority.")
-    
-    footer = doc.sections[0].footer
+    section = doc.sections[0]
+    footer = section.footer
     f_p = footer.paragraphs[0]
     f_p.text = "Prepared by The Empowered PM Consulting, copyright 2026."
     f_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -97,7 +93,7 @@ with col_title:
 st.markdown("""
 <div class="hero-section">
     <strong>Validation & Practical Recovery.</strong> Identify schedule errors and dependency gaps 
-    to lead your project with absolute clarity.
+    to lead your project with absolute clarity and authority.
 </div>
 """, unsafe_allow_html=True)
 
@@ -106,24 +102,32 @@ with st.sidebar:
     st.header("Auditor Control")
     project_context = st.selectbox("Project Domain", ["IT/Software", "Construction", "Operations", "Marketing", "Events"])
     
-    # --- SIDEBAR CTA / LEAD MAGNET ---
-    st.markdown(f"""
-    <div class="sidebar-cta">
-        <strong>🚀 PM Survival Intensive</strong><br>
-        Stop surviving, start leading. Join the 4-week program for Accidental PMs.<br><br>
-        <a href="https://your-coaching-site.com" target="_blank">View Program Details →</a>
-    </div>
-    """, unsafe_allow_html=True)
+    df_template = pd.DataFrame({
+        "Task ID": [1, 2, 3, 4],
+        "Task Name": ["Kickoff", "Design", "Execution", "Review"],
+        "Start Date": ["2026-05-01", "2026-05-02", "2026-05-15", "2026-06-01"],
+        "End Date": ["2026-05-01", "2026-05-10", "2026-05-30", "2026-06-02"],
+        "Resource": ["PM", "Analyst", "Lead", "Client"],
+        "Predecessor": ["None", "1", "2", "3"]
+    })
+    st.download_button(
+        label="📥 Download CSV Template",
+        data=df_template.to_csv(index=False).encode('utf-8'),
+        file_name="empowered_pm_template.csv",
+        mime="text/csv"
+    )
 
     st.divider()
-    st.markdown("**📖 Quick Start**")
-    st.info("Upload -> Audit -> Recover -> Export")
-    
-    if st.button("🗑️ RESET ALL DATA"):
-        if 'audit_report' in st.session_state: del st.session_state['audit_report']
-        if 'recovery_plan' in st.session_state: del st.session_state['recovery_plan']
-        st.session_state['uploader_key'] += 1
-        st.rerun()
+    st.markdown("**📖 Quick Start Guide**")
+    st.markdown(f"""
+    <div class="sidebar-guide">
+    1. <b>File Prep:</b> Use our template for core columns.<br>
+    2. <b>Select Type:</b> Set your <b>Project Domain</b>.<br><br>
+    3. <b>Process:</b> Run Audit (Red), then Recovery (Green).<br><br>
+    4. <b>Export:</b> Download your report.<br><br>
+    5. <b>Reset:</b> Clear data for your next project.
+    </div>
+    """, unsafe_allow_html=True)
 
 # --- 5. MAIN INTERFACE LOGIC ---
 if not api_key:
@@ -151,7 +155,7 @@ if uploaded_file:
                     schedule_data = df.to_string(index=False)
                     response = client.chat.completions.create(
                         model="gpt-4-turbo",
-                        messages=[{"role": "system", "content": f"You are a Senior PMO Auditor for {project_context}. Audit this schedule for logic errors. No tool suggestions. Use plain text math only."}, {"role": "user", "content": schedule_data}]
+                        messages=[{"role": "system", "content": "You are a Senior PMO Auditor. Audit for logic errors. No tool suggestions. Use plain text math only."}, {"role": "user", "content": schedule_data}]
                     )
                     st.session_state['audit_report'] = response.choices[0].message.content
                     st.rerun()
@@ -162,14 +166,17 @@ if uploaded_file:
                     with st.spinner("Building roadmap..."):
                         response = client.chat.completions.create(
                             model="gpt-4-turbo",
-                            messages=[{"role": "system", "content": "Create a 3-step recovery roadmap. No software migrations. No asterisks."}, {"role": "user", "content": st.session_state['audit_report']}]
+                            messages=[{"role": "system", "content": "Create a 3-step recovery roadmap based on findings. No asterisks."}, {"role": "user", "content": st.session_state['audit_report']}]
                         )
                         st.session_state['recovery_plan'] = response.choices[0].message.content
                         st.rerun()
         
         with col3:
-             # Reset button is now in sidebar for cleaner UI, but leaving functional trigger here if needed
-             st.info("Use Reset in sidebar to clear.")
+            if st.button("🗑️ RESET ALL DATA"):
+                if 'audit_report' in st.session_state: del st.session_state['audit_report']
+                if 'recovery_plan' in st.session_state: del st.session_state['recovery_plan']
+                st.session_state['uploader_key'] += 1
+                st.rerun()
 
         if 'audit_report' in st.session_state:
             st.divider()
@@ -177,19 +184,28 @@ if uploaded_file:
             st.markdown(st.session_state['audit_report'])
             
         if 'recovery_plan' in st.session_state:
-            st.success("### ✅ Practical Recovery Roadmap")
+            st.success("### ✅ Your Empowered Recovery Roadmap")
             st.markdown(st.session_state['recovery_plan'])
             
-            # --- DYNAMIC CALL TO ACTION ---
+            # --- CUSTOMIZABLE CTA ---
+            # Replace 'REPLACE_WITH_YOUR_SCHEDULE_LINK' with your Calendly/Booking link
+            # Replace 'REPLACE_WITH_YOUR_LANDING_PAGE' with your website/program link
             st.markdown("""
                 <div class="cta-box">
                     <h3 style="margin-top: 0; color: #856404;">🛠️ Need a Schedule Rescue?</h3>
-                    <p style="color: #856404;">Don't present a broken plan. Book a <b>15-Minute Strategy Session</b> to finalize your recovery strategy before your next update.</p>
-                    <a href="https://calendly.com/your-link" target="_blank" style="text-decoration: none;">
-                        <div style="background-color: #856404; color: white; padding: 12px; border-radius: 5px; font-weight: bold;">
-                            Book Your Rescue Session Now
-                        </div>
-                    </a>
+                    <p style="color: #856404;">Don't present a broken plan. Book a <b>15-Minute Strategy Session</b> or join the <b>4-Week PM Survival Intensive</b>.</p>
+                    <div style="display: flex; gap: 10px; justify-content: center;">
+                        <a href="REPLACE_WITH_YOUR_SCHEDULE_LINK" target="_blank" style="text-decoration: none; flex: 1;">
+                            <div style="background-color: #856404; color: white; padding: 12px; border-radius: 5px; font-weight: bold;">
+                                Book a Rescue Session
+                            </div>
+                        </a>
+                        <a href="REPLACE_WITH_YOUR_LANDING_PAGE" target="_blank" style="text-decoration: none; flex: 1;">
+                            <div style="background-color: #2c3e50; color: white; padding: 12px; border-radius: 5px; font-weight: bold;">
+                                Join the 4-Week Intensive
+                            </div>
+                        </a>
+                    </div>
                 </div>
             """, unsafe_allow_html=True)
             
@@ -198,3 +214,7 @@ if uploaded_file:
             
     except Exception as e:
         st.error(f"Error: {e}")
+
+st.divider()
+with st.expander("📚 The Empowered PM's Glossary"):
+    st.markdown("""<div class="glossary-card"><strong>Logic Validation:</strong> Ensuring your plan follows scheduling principles so it remains predictable and manageable.</div>""", unsafe_allow_html=True)
