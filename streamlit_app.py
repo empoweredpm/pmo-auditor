@@ -3,7 +3,7 @@ import pandas as pd
 from openai import OpenAI
 import re
 from docx import Document
-from docx.shared import Pt, Inches, RGBColor # Added RGBColor here
+from docx.shared import Pt, Inches, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from io import BytesIO
 import os
@@ -11,7 +11,7 @@ import os
 # --- 1. PAGE SETUP ---
 st.set_page_config(page_title="The Empowered PM Auditor", layout="wide", page_icon="🛡️")
 
-# CSS: Styling for The Empowered PM branding
+# CSS: Branding and CTA Styling
 st.markdown("""
     <style>
     .stButton > button { width: 100%; border-radius: 8px; height: 3.5em; font-weight: bold; color: white !important; }
@@ -21,7 +21,14 @@ st.markdown("""
         background-color: #bdc3c7 !important; color: #000000 !important; border: 2px solid #2c3e50 !important;
     }
     .hero-section { background-color: #f0f4f8; padding: 25px; border-radius: 15px; border-left: 10px solid #0052cc; margin-bottom: 20px; }
-    .sidebar-guide { font-size: 0.85rem; color: #333; background-color: #f0f2f6; padding: 12px; border-radius: 8px; border: 1px solid #d1d5db; }
+    .cta-box { 
+        background-color: #fff3cd; padding: 20px; border-radius: 10px; 
+        border: 2px solid #ffeeba; margin-top: 25px; text-align: center;
+    }
+    .sidebar-cta {
+        background-color: #e7f3ff; padding: 15px; border-radius: 8px; 
+        border: 1px solid #b3d7ff; margin-top: 20px; font-size: 0.9rem;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -32,19 +39,16 @@ if 'uploader_key' not in st.session_state:
     st.session_state['uploader_key'] = 0
 
 def format_clean_text(doc, text):
-    """Helper to remove asterisks and create real Word bullet points/spacing."""
     lines = text.split('\n')
     for line in lines:
         clean_line = line.replace('*', '').strip()
         if not clean_line:
             doc.add_paragraph()
             continue
-        
         if line.strip().startswith('*') or line.strip().startswith('-'):
-            p = doc.add_paragraph(clean_line, style='List Bullet')
+            doc.add_paragraph(clean_line, style='List Bullet')
         else:
-            p = doc.add_paragraph(clean_line)
-        p.paragraph_format.space_after = Pt(6)
+            doc.add_paragraph(clean_line)
 
 def create_word_doc(domain, audit, recovery):
     doc = Document()
@@ -65,17 +69,17 @@ def create_word_doc(domain, audit, recovery):
     doc.add_heading('🛠️ Recovery Roadmap', level=1)
     format_clean_text(doc, recovery)
     
-    # Watermark Footer - FIXED with RGBColor object
-    section = doc.sections[0]
-    footer = section.footer
+    # CTA inside the Document
+    doc.add_heading('Next Steps: Join the PM Survival Intensive', level=2)
+    doc.add_paragraph("Don't let logic bugs derail your leadership. Join our 4-week intensive coaching program to master project authority.")
+    
+    footer = doc.sections[0].footer
     f_p = footer.paragraphs[0]
     f_p.text = "Prepared by The Empowered PM Consulting, copyright 2026."
     f_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    
-    # Apply styling using RGBColor object
     run = f_p.runs[0] if f_p.runs else f_p.add_run()
     run.font.size = Pt(9)
-    run.font.color.rgb = RGBColor(128, 128, 128) # Fix: Uses RGBColor object
+    run.font.color.rgb = RGBColor(128, 128, 128)
     
     bio = BytesIO()
     doc.save(bio)
@@ -93,7 +97,7 @@ with col_title:
 st.markdown("""
 <div class="hero-section">
     <strong>Validation & Practical Recovery.</strong> Identify schedule errors and dependency gaps 
-    before they hit your critical path. Lead your project with absolute clarity and authority.
+    to lead your project with absolute clarity.
 </div>
 """, unsafe_allow_html=True)
 
@@ -102,17 +106,24 @@ with st.sidebar:
     st.header("Auditor Control")
     project_context = st.selectbox("Project Domain", ["IT/Software", "Construction", "Operations", "Marketing", "Events"])
     
-    st.divider()
-    st.markdown("**📖 Quick Start Guide**")
-    st.markdown("""
-    <div class="sidebar-guide">
-    1. <b>Upload:</b> Schedule in XLSX or CSV.<br>
-    2. <b>Audit (Red):</b> Execute logic critique.<br>
-    3. <b>Recover (Green):</b> Generate fixes.<br>
-    4. <b>Export:</b> Download report.<br>
-    5. <b>Reset:</b> Clear data for next user.
+    # --- SIDEBAR CTA / LEAD MAGNET ---
+    st.markdown(f"""
+    <div class="sidebar-cta">
+        <strong>🚀 PM Survival Intensive</strong><br>
+        Stop surviving, start leading. Join the 4-week program for Accidental PMs.<br><br>
+        <a href="https://your-coaching-site.com" target="_blank">View Program Details →</a>
     </div>
     """, unsafe_allow_html=True)
+
+    st.divider()
+    st.markdown("**📖 Quick Start**")
+    st.info("Upload -> Audit -> Recover -> Export")
+    
+    if st.button("🗑️ RESET ALL DATA"):
+        if 'audit_report' in st.session_state: del st.session_state['audit_report']
+        if 'recovery_plan' in st.session_state: del st.session_state['recovery_plan']
+        st.session_state['uploader_key'] += 1
+        st.rerun()
 
 # --- 5. MAIN INTERFACE LOGIC ---
 if not api_key:
@@ -140,10 +151,7 @@ if uploaded_file:
                     schedule_data = df.to_string(index=False)
                     response = client.chat.completions.create(
                         model="gpt-4-turbo",
-                        messages=[
-                            {"role": "system", "content": f"You are a Senior PMO Auditor for {project_context}. Audit this schedule for logic errors. Do NOT recommend new PM tools. Provide a health score (0-100%) and plain text math only."},
-                            {"role": "user", "content": schedule_data}
-                        ]
+                        messages=[{"role": "system", "content": f"You are a Senior PMO Auditor for {project_context}. Audit this schedule for logic errors. No tool suggestions. Use plain text math only."}, {"role": "user", "content": schedule_data}]
                     )
                     st.session_state['audit_report'] = response.choices[0].message.content
                     st.rerun()
@@ -154,20 +162,14 @@ if uploaded_file:
                     with st.spinner("Building roadmap..."):
                         response = client.chat.completions.create(
                             model="gpt-4-turbo",
-                            messages=[
-                                {"role": "system", "content": "Create a 3-step recovery roadmap based on findings. No software migrations. No asterisks."},
-                                {"role": "user", "content": st.session_state['audit_report']}
-                            ]
+                            messages=[{"role": "system", "content": "Create a 3-step recovery roadmap. No software migrations. No asterisks."}, {"role": "user", "content": st.session_state['audit_report']}]
                         )
                         st.session_state['recovery_plan'] = response.choices[0].message.content
                         st.rerun()
         
         with col3:
-            if st.button("🗑️ RESET ALL DATA"):
-                if 'audit_report' in st.session_state: del st.session_state['audit_report']
-                if 'recovery_plan' in st.session_state: del st.session_state['recovery_plan']
-                st.session_state['uploader_key'] += 1
-                st.rerun()
+             # Reset button is now in sidebar for cleaner UI, but leaving functional trigger here if needed
+             st.info("Use Reset in sidebar to clear.")
 
         if 'audit_report' in st.session_state:
             st.divider()
@@ -178,21 +180,21 @@ if uploaded_file:
             st.success("### ✅ Practical Recovery Roadmap")
             st.markdown(st.session_state['recovery_plan'])
             
-            # This generates the doc bytes
-            word_data = create_word_doc(project_context, st.session_state['audit_report'], st.session_state['recovery_plan'])
+            # --- DYNAMIC CALL TO ACTION ---
+            st.markdown("""
+                <div class="cta-box">
+                    <h3 style="margin-top: 0; color: #856404;">🛠️ Need a Schedule Rescue?</h3>
+                    <p style="color: #856404;">Don't present a broken plan. Book a <b>15-Minute Strategy Session</b> to finalize your recovery strategy before your next update.</p>
+                    <a href="https://calendly.com/your-link" target="_blank" style="text-decoration: none;">
+                        <div style="background-color: #856404; color: white; padding: 12px; border-radius: 5px; font-weight: bold;">
+                            Book Your Rescue Session Now
+                        </div>
+                    </a>
+                </div>
+            """, unsafe_allow_html=True)
             
-            # This button will now show up because the create_word_doc error is fixed
-            st.download_button(
-                label="📥 Download Report", 
-                data=word_data, 
-                file_name="Empowered_PM_Report.docx", 
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", 
-                use_container_width=True
-            )
+            word_data = create_word_doc(project_context, st.session_state['audit_report'], st.session_state['recovery_plan'])
+            st.download_button(label="📥 Download Report", data=word_data, file_name="Empowered_PM_Report.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
+            
     except Exception as e:
         st.error(f"Error: {e}")
-
-# --- 6. GLOSSARY ---
-st.divider()
-with st.expander("📚 The Empowered PM's Glossary"):
-    st.markdown("""<div class="glossary-card"><strong>Logic Validation:</strong> The process of ensuring your project plan follows standard scheduling principles so it remains predictable and manageable.</div>""", unsafe_allow_html=True)
