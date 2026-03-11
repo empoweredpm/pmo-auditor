@@ -179,7 +179,7 @@ if uploaded_file:
                     <h2>🛡️ Need a Professional Rescue?</h2>
                     <p>Don't present a broken plan. Let's fix your logic together or join our training cohort.</p>
                     <a href="https://calendly.com/empoweredpming/rescue_session" class="cta-button btn-rescue" target="_blank">Book 15-Min Rescue Call</a>
-                    <a href="https://theempoweredpm.com" class="cta-button btn-course" target="_blank">Join 4-Week Intensive</a>
+                    <a href="https://empoweredpm.com" class="cta-button btn-course" target="_blank">Join 4-Week Intensive</a>
                 </div>
             """, unsafe_allow_html=True)
             
